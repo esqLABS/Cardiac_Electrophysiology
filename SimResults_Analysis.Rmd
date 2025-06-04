@@ -1,0 +1,201 @@
+---
+title: "Analyze OrDSex model results"
+output: html_notebook
+author: "R. Lesage - ESQlabs"
+description: "The simulation scripts 'modelRunner_drugs.R' returns a raw vector, including action potential and current data for each scenarios. The current analysis script postprocess that output, compute biomarkers and generate visualization plots. The current script needs to be adapted for each input file"
+---
+
+# Load packages
+```{r}
+library("ggplot2")
+library("ragg")
+source("Compute_population_biomarkers.R")
+source("APD_beats.R")
+source("CTD_beats.R")
+source("getQnet.R")
+library("dplyr")
+library("purrr")
+```
+
+
+# Load data
+```{r}
+File_location= "Results/
+"
+Dofet_M <- get(load(paste0(File_location, "Dofetilide_GFR90_M_05mg_12h_70kg_male_population_BCL1000_endo.RData")))
+Dofet_F <- get(load(paste0(File_location, "Dofetilide_GFR90_F_05mg_12h_70kg_female_population_BCL1000_endo.RData")))
+
+Clari_F <- get(load(paste0(File_location, "Clarithromycin_F_GFR90_intravenous_500mg_12h_female_population_BCL1000_endo.RData")))
+Clari_M <- get(load(paste0(File_location, "Clarithromycin_M_GFR90_intravenous_500mg_12h_male_population_BCL1000_endo.RData")))
+
+Quini_F <- get(load(paste0(File_location, "Quinidine_Patient_F_40yo_GFR90_600mg_8h_female_population_BCL1000_endo.RData")))
+Quini_M <- get(load(paste0(File_location, "Quinidine_Patient_M_40yo_GFR90_600mg_8h_male_population_BCL1000_endo.RData")))
+
+Control_F <- get(load(paste0(File_location, "Control_Control_F_female_population_BCL1000_endo.RData")))
+Control_M <- get(load(paste0(File_location, "Control_Control_M_male_population_BCL1000_endo.RData")))
+
+```
+
+
+# Define functions
+```{r}
+
+Plot_AP <-function(BeatNumber, results, control, Title, drug_name){
+  
+  #'Results' contains several Times and X lists, one for each simulated individual --> extract them:
+  Times <- results[grep("time", names(results))]
+  X <-results[grep("X", names(results))]
+  Times.c <- control[grep("time", names(control))]
+  X.c <-control[grep("X", names(control))]
+  # head(Times[[1]][[5]]) # first patient 5th heartbeats
+  # head(X[[1]][[5]][,1]) # 1st patient, 5th heartbeat, Voltage
+  
+  N = length(Times) # number of individuals in the population
+  Nc= length(Times.c)
+  
+  # Get time vector & voltage of first individual, last saved beat:
+  V=  X[[1]][[BeatNumber]][,1]
+  t = Times[[1]][[BeatNumber]]
+  V.c = X.c[[1]][[BeatNumber]][,1]
+  t.c = Times.c[[1]][[BeatNumber]]
+  
+  #Create plot with first individual
+  plot(t, V, type = "l", lwd = 2, col= "blue",
+       xlab = "Time (ms)", ylab = "Voltage (mV)", ylim=c(-85,50), main = Title)
+  
+  # Define all desired tick positions
+  all_ticks <- seq(0, 10000, by = 100)  # Ticks at every 100
+
+  # Draw the custom axis with all the ticks
+  axis(1, at = all_ticks, labels = all_ticks, las = 1)  # `las=2` makes labels vertical
+
+  # Add other curves using lines()
+  for(p in c(2:N)){
+    lines(Times[[p]][[BeatNumber]], X[[p]][[BeatNumber]][,1],col = "blue", lwd = 2)
+  }
+  
+  # Add control lines
+  for(i in c(2:Nc)){
+    lines(Times.c[[i]][[BeatNumber]], X.c[[i]][[BeatNumber]][,1],col = "grey", lwd = 2)
+  }
+  
+  # Add a legend
+  legend("topright", legend=c(paste0(drug_name, " n=",N), paste0("Control n=", Nc)), 
+       col=c("blue", "grey"), pch=c(16, 17))
+
+}
+
+
+Get_biomarkers <-function(results, biomarker_string, BeatNumber){
+  #biomarker should be a string
+  #results should be a list (output of simulation)
+  
+  biomaker_values <- sapply(results[grep(biomarker_string, names(results))], `[`, BeatNumber)
+}
+
+Plot_biomarkers<-function(results, control, Title, drug_name){
+  # Retrieve biomarkers
+  ## fetch biomarker values for drug and control
+  BeatNumber= 1
+  APD90_values <- Get_biomarkers(results, "APD90", BeatNumber)
+  qNet_values <- Get_biomarkers(results, "^qnet$", BeatNumber)
+  qNet_APD_values <- Get_biomarkers(results, "qnet_apd", BeatNumber)
+  Ca_syst_values <- Get_biomarkers(results, "cai_syst", BeatNumber)
+  APD90_control <- Get_biomarkers(control, "APD90", BeatNumber)
+  qNet_control <- Get_biomarkers(control, "^qnet$", BeatNumber)
+  qNet_APD_control <- Get_biomarkers(control, "qnet_apd", BeatNumber)
+  Ca_syst_control <- Get_biomarkers(control, "cai_syst", BeatNumber)
+  
+  #Number of individuals
+  N = length(APD90_values) # number of individuals in the population
+  Nc= length(APD90_control)
+  
+  ## Create dataframes
+  df_data_drug <- data.frame(IndividualID = 1:N, APD90 = APD90_values, qNet = qNet_values, qNet_APD = qNet_APD_values, Cai_syst = Ca_syst_values, Drug = drug_name)
+  
+  df_data_control <- data.frame(IndividualID = 1:Nc, APD90 = APD90_control, qNet = qNet_control, qNet_APD = qNet_APD_control, Cai_syst = Ca_syst_control, Drug = "Control")
+  
+  df_data <- rbind(df_data_drug, df_data_control)
+  
+  # Set "Control" as higher level so it appears first in ggplot
+  df_data$Drug <- factor(df_data$Drug, levels = c("Control", setdiff(unique(df_data$Drug), "Control")))
+  
+  # Plot biomakers (violin plots)
+  ## Default axis scaling
+  p <- ggplot(df_data, aes(x=Drug, y=APD90)) +
+    geom_violin(trim= FALSE)+
+    labs(title = Title)+
+    theme(text = element_text(size = 16)) +
+    ylab("APD90 (ms)")
+  
+  ## Basic violin plot, scaled axis
+  p2 <- ggplot(df_data, aes(x=Drug, y=APD90)) +
+    geom_violin(trim= FALSE)+
+    labs(title = Title)+
+    ylab("APD90 (ms)")+
+    theme(text = element_text(size = 16)) +
+    ylim(c(200,1000))
+  
+  return(list(violin_plot1= p, violin_plot2 = p2, biomkr = df_data_drug, biomkr_control= df_data_control))
+}
+
+
+
+```
+
+Generate action potential plots for each drugs
+```{r}
+LastBeatNumber = 5
+Plot_AP(LastBeatNumber, Dofet_M, Control_M, "Dofetilide - 0.5mg/12h - Male", "Dofetilide")
+Plot_AP(LastBeatNumber, Dofet_F, Control_F, "Dofetilide - 0.5mg/12h - Female", "Dofetilide")
+
+
+Plot_AP(LastBeatNumber, Quini_M, Control_M, "Quinidine - 600mg 8h - Male", "Quinidine")
+Plot_AP(LastBeatNumber, Quini_F, Control_F, "Quinidine - 600mg_8h - Female", "Quinidine")
+
+Plot_AP(LastBeatNumber, Clari_M, Control_M, "Clarithromycine - 500mg 12h - Male", "Clarithromycine")
+Plot_AP(LastBeatNumber, Clari_F, Control_F, "Clarithromycine - 500mg 12h - Female", "Clarithromycine")
+
+```
+
+Compute Biomarkers:
+```{r}
+
+Dofet_M_biomrkr <- Compute_population_biomarkers(Dofet_M)
+Dofet_F_biomrkr <- Compute_population_biomarkers(Dofet_F)
+Clari_M_biomrkr <- Compute_population_biomarkers(Clari_M)
+Clari_F_biomrkr <- Compute_population_biomarkers(Clari_F)
+Control_M_biomrkr <- Compute_population_biomarkers(Control_M)
+Control_F_biomrkr <- Compute_population_biomarkers(Control_F)
+Quini_M_biomrkr <- Compute_population_biomarkers(Quini_M)
+Quini_F_biomrkr <- Compute_population_biomarkers(Quini_F)
+
+
+  
+```
+
+
+# Plot Biomakers
+
+```{r}
+
+Dofetilide_M <- Plot_biomarkers(Dofet_M_biomrkr, Control_M_biomrkr, "Dofetilide - 0.5mg/12h - Male N=21", "Dofetilide")
+Dofetilide_F <- Plot_biomarkers(Dofet_F_biomrkr, Control_F_biomrkr, "Dofetilide - 0.5mg/12h - Female N=21", "Dofetilide")
+
+
+Quinidine_M <- Plot_biomarkers(Quini_M_biomrkr, Control_M_biomrkr, "Quinidine - 600mg 8h - Male N=21", "Quinidine")
+Quinidine_F <- Plot_biomarkers(Quini_F_biomrkr, Control_F_biomrkr, "Quinidine - 600mg_8h - Female N=21", "Quinidine")
+
+Clarithromycine_M <- Plot_biomarkers(Clari_M_biomrkr, Control_M_biomrkr, "Clarithromycine - 500mg 12h - Male N=21", "Clarithromycine")
+Clarithromycine_F <- Plot_biomarkers(Clari_F_biomrkr, Control_F_biomrkr, "Clarithromycine - 500mg 12h - Female N=21", "Clarithromycine")
+
+Dofetilide_M$violin_plot2
+Dofetilide_F$violin_plot2
+Quinidine_M$violin_plot2
+Quinidine_F$violin_plot2
+Clarithromycine_M$violin_plot2
+Clarithromycine_F$violin_plot2
+
+```
+
+
