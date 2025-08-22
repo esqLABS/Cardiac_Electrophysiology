@@ -9,7 +9,7 @@ The virtual population was generated as part of that initial publication and is 
 The input Free plasma concentration (FPC) for each CiPA drugs is the one from the original publication in order to reproduce the results and validate the R implementation. Those FPCs were computed for each drug and each scenario with non-compartmental pop-PK models in the original paper. 
 
 R workflow and scripts:
-- Master file: RModelRunnerDrugs.R (Adapt the name of drugs to be simulated within the script): uses parallel computing (individuals run in parallel) 
+- Master file: modelRunnerDrugs.R (Adapt the name of drugs to be simulated within the script): uses parallel computing (individuals run in parallel) 
 - Results are saved in 'Results'
 - For postprocessing, biomarker calculation and plotting, run 'SimResults_Analysis.R' (needs to be adapted for each input result file) 
 
