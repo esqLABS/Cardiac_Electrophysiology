@@ -1,6 +1,6 @@
 README
 
-The current scripts allow simulating the effect of benchmark CiPA drugs on a cardiac electrophysiology model. The scripts were translated from MATLAB and adapted. The R implementation was validated by reproducing the original results for the benchmark CiPA drugs. 
+The current scripts allow simulating the effect of benchmark CiPA drugs on a cardiac electrophysiology model. The scripts were translated from MATLAB to R and adapted. The R implementation was validated by reproducing the original published results for a series of benchmark CiPA drugs. 
 
 Original publication: 
 Llopis-Lorente J, Baroudi S, Koloskoff K, Mora MT, Basset M, Romero L, Benito S, Dayan F, Saiz J, Trenor B. Combining pharmacokinetic and electrophysiological models for early prediction of drug-induced arrhythmogenicity. Comput Methods Programs Biomed. 2023 Dec;242:107860. doi: 10.1016/j.cmpb.2023.107860. Epub 2023 Oct 11. PMID: 37844488.
