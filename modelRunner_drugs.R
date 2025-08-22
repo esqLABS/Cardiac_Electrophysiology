@@ -41,7 +41,7 @@ registerDoParallel(cl)
 for (drug_to_simulate in drugs_to_simulate) {
 
   # Read Excel data
-  drug_data <- read_excel(paste0(path_name, "/", drug_to_simulate, "_maxC_IC50 - NRF.xlsx"))
+  drug_data <- read_excel(paste0(path_name, "/", drug_to_simulate, "_maxC_IC50.xlsx"))
   # Set the first column as rownames and remove it from the data
   #drug_data <- drug_data[, -1]
 
@@ -62,11 +62,11 @@ for (drug_to_simulate in drugs_to_simulate) {
 
     if (gender == 1) {
       cat("Male population\n")
-      scaling <- scalars[3:23, ] # Do 20 patients (1 and 2 already done)
+      scaling <- scalars[1:300, ] # Do 20 patients (1 and 2 already done)
       sex <- "male"
     } else if (gender == 2) {
       cat("Female population\n")
-      scaling <- scalars[303:323, ] # Do 20 patients (1 and 2 already done)
+      scaling <- scalars[301:600, ] # Do 20 patients (1 and 2 already done)
       sex <- "female"
     }
 
